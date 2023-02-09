@@ -5,10 +5,9 @@ import com.data.factory.models.{MessageStruct, OutputStream}
 import com.data.factory.ports.Queue
 import com.typesafe.scalalogging.Logger
 import org.apache.spark.sql.functions.{col, from_json}
-import org.apache.spark.sql.types.{StringType, StructType}
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
-
-import scala.collection.immutable.List
+import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.types._
 
 class KafkaOperator extends Queue with Serializable {
   private val log = Logger("KafkaOperator")
@@ -35,11 +34,12 @@ class KafkaOperator extends Queue with Serializable {
   }
 
   override def parseData(df: DataFrame, fields: List[MessageStruct]): DataFrame = try {
-    log.info("Renamed columns.")
-    val columns = fields.map(f => col("parsed.%s".format(f.fieldName)))
     log.info("Extracting fields.")
-    df.select(from_json(col("value").cast("string"), getSchema(fields)).alias("parsed"))
-      .select(columns: _*)
+
+    val parsedDf = df.select(from_json(col("value").cast("string"), getSchema(fields)).alias("parsed"))
+    //log.info("DataFrame schema %s.".format(parsedDf.printSchema))
+    log.info("Selecting columns")
+    parsedDf.select(col("parsed.*"))
   } catch {
     case e: Exception => throw QueueException("%s %s".format(e.getClass, e.getMessage))
   }
@@ -47,7 +47,7 @@ class KafkaOperator extends Queue with Serializable {
   def getSchema(fields: List[MessageStruct]): StructType = {
     val schema = new StructType()
     log.info("Adding fields")
-    fields.map(f => schema.add(f.fieldName, getDataType(f.fieldType), f.nullable))
+    fields.map(f => schema.add(StructField(f.fieldName, getDataType(f.fieldType), f.nullable)))
     log.info("Schema generated successfully.")
     schema
   }

@@ -23,8 +23,6 @@ class KafkaOperatorTest extends FlatSpec {
     val spark = sparkSession.makeLocal()
     val operator = new KafkaOperator(spark)
     val schema = operator.getSchema(fields)
-
-    log.info(schema.fields.toString)
   }
 
 }
