@@ -2,9 +2,8 @@
 target
 .metals
 .vscode
-.bloop
 output
 contractbkp.json
 runbkp.sh
-data
+data/data
 checkpoint
