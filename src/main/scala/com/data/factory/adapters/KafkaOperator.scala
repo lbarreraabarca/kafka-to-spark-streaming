@@ -5,6 +5,7 @@ import com.data.factory.models.{MessageStruct, OutputStream}
 import com.data.factory.ports.Queue
 import com.typesafe.scalalogging.Logger
 import org.apache.spark.sql.functions.{col, from_json}
+import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
@@ -30,12 +31,12 @@ class KafkaOperator extends Queue with Serializable {
       .option("kafka.bootstrap.servers", bootstrapServer)
       .option("subscribe", topicName)
       .option("includeHeaders", "true")
+      //.option("failOnDataLoss", "false")
       .load()
   }
 
   override def parseData(df: DataFrame, fields: List[MessageStruct]): DataFrame = try {
     log.info("Extracting fields.")
-
     val parsedDf = df.select(from_json(col("value").cast("string"), getSchema(fields)).alias("parsed"))
     //log.info("DataFrame schema %s.".format(parsedDf.printSchema))
     log.info("Selecting columns")
@@ -74,8 +75,10 @@ class KafkaOperator extends Queue with Serializable {
     outputStream.tableType() match {
       case "csv" => df.writeStream
         .format("csv")
-        .option("checkpointLocation", "%s/checkpoint/".format(outputStream.csv.path))
-        .option("path", "%s/data".format(outputStream.csv.path))
+        .trigger(Trigger.ProcessingTime("10 seconds"))
+        .option("checkpointLocation", "checkpoint/")
+        .option("path", outputStream.csv.path)
+        .outputMode("append")
         .start()
         .awaitTermination()
       case "parquet" => df.writeStream
