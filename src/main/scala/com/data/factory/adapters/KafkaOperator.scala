@@ -37,20 +37,21 @@ class KafkaOperator extends Queue with Serializable {
 
   override def parseData(df: DataFrame, fields: List[MessageStruct]): DataFrame = try {
     log.info("Extracting fields.")
-    val parsedDf = df.select(from_json(col("value").cast("string"), getSchema(fields)).alias("parsed"))
-    //log.info("DataFrame schema %s.".format(parsedDf.printSchema))
-    log.info("Selecting columns")
-    parsedDf.select(col("parsed.*"))
+    val columnsNames = fields.map(f => col("parsed.%s".format(f.fieldName)))
+    df.selectExpr("cast(value as string) as payload")
+      .select(from_json(col("payload").cast("string"), getSchema(fields)).as("parsed"))
+      .select(columnsNames: _*)
   } catch {
     case e: Exception => throw QueueException("%s %s".format(e.getClass, e.getMessage))
   }
 
   def getSchema(fields: List[MessageStruct]): StructType = {
-    val schema = new StructType()
     log.info("Adding fields")
-    fields.map(f => schema.add(StructField(f.fieldName, getDataType(f.fieldType), f.nullable)))
     log.info("Schema generated successfully.")
-    schema
+    var fieldList = List[StructField]()
+    for (f <- fields) fieldList = fieldList :+ StructField(f.fieldName, getDataType(f.fieldType), f.nullable)
+    log.info("fieldList size : %s".format(fieldList.size) )
+    StructType(fieldList)
   }
 
   private val getDataType: String => org.apache.spark.sql.types.DataType = fieldType => {
@@ -72,11 +73,13 @@ class KafkaOperator extends Queue with Serializable {
   override def writeData(df: DataFrame, outputStream: OutputStream): Unit = {
     if(!Option(df).isDefined) throw QueueException("df cannot be null.")
     if(!Option(outputStream).isDefined) throw QueueException("outputStream cannot be null")
+    val checkPointPath = scala.util.Properties.envOrElse("CHECKPOINT_PATH", "undefined")
+    if (!Option(checkPointPath).isDefined || checkPointPath.isEmpty) throw QueueException("CHECKPOINT_PATH cannot be null.")
     outputStream.tableType() match {
       case "csv" => df.writeStream
         .format("csv")
         .trigger(Trigger.ProcessingTime("10 seconds"))
-        .option("checkpointLocation", "checkpoint/")
+        .option("checkpointLocation", checkPointPath)
         .option("path", outputStream.csv.path)
         .outputMode("append")
         .start()

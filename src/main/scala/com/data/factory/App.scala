@@ -22,8 +22,6 @@ object App extends Serializable{
     def main(args: Array[String]): Unit = {
         val encodedInput = args(0)
         try {
-            val checkPointPath = scala.util.Properties.envOrElse("CHECKPOINT_PATH", "undefined")
-            if (!Option(checkPointPath).isDefined || checkPointPath.isEmpty) throw RequestException("CHECKPOINT_PATH cannot be null.")
             log.info("Creating SparkSession")
             val sparkSession = new SparkSessionFactory()
             log.info("Creating Spark Cluster")

@@ -30,7 +30,7 @@
   },
   "outputStream": {
     "csv": {
-      "path": "C:\\Users\\lubar\\OneDrive\\Documentos\\GitHub\\kafka-to-spark-streaming",
+      "path": "output/",
       "delimiter": ",",
       "header": true
     }
