@@ -31,7 +31,6 @@ class KafkaOperator extends Queue with Serializable {
       .option("kafka.bootstrap.servers", bootstrapServer)
       .option("subscribe", topicName)
       .option("includeHeaders", "true")
-      //.option("failOnDataLoss", "false")
       .load()
   }
 
@@ -47,10 +46,9 @@ class KafkaOperator extends Queue with Serializable {
 
   def getSchema(fields: List[MessageStruct]): StructType = {
     log.info("Adding fields")
-    log.info("Schema generated successfully.")
     var fieldList = List[StructField]()
     for (f <- fields) fieldList = fieldList :+ StructField(f.fieldName, getDataType(f.fieldType), f.nullable)
-    log.info("fieldList size : %s".format(fieldList.size) )
+    log.info("Schema generated successfully.")
     StructType(fieldList)
   }
 
@@ -86,8 +84,8 @@ class KafkaOperator extends Queue with Serializable {
         .awaitTermination()
       case "parquet" => df.writeStream
         .format("parquet")
-        .option("checkpointLocation", "%s/checkpoint/".format(outputStream.csv.path))
-        .option("path", "%s/data".format(outputStream.csv.path))
+        .option("checkpointLocation", checkPointPath)
+        .option("path", outputStream.parquet.path)
         .start()
         .awaitTermination()
       case _ => throw QueueException("unimplemented %s format.".format(outputStream.tableType()))
